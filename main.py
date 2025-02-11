@@ -190,3 +190,6 @@ st.markdown(
     "Hecho con ❤️ usando Streamlit | "
     "Tus datos están almacenados de forma segura en una base de datos"
 )
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(environ.get("PORT", 5000)))
