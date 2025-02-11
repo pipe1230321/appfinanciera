@@ -14,6 +14,7 @@ from utils import (
     update_transaction,
     delete_transaction
 )
+from ai_advisor import generate_financial_advice, get_monthly_advice
 
 # Initialize database
 init_db()
@@ -109,6 +110,26 @@ with col2:
         use_container_width=True,
         key="line_chart"
     )
+
+# AI Financial Advice Section
+st.header("💡 Consejos Financieros Personalizados")
+col1, col2 = st.columns([2, 1])
+
+with col1:
+    if not filtered_df.empty:
+        monthly_advice = get_monthly_advice(filtered_df)
+        st.markdown(f"### Análisis Mensual\n{monthly_advice}")
+    else:
+        st.info("Agrega transacciones para recibir un análisis mensual personalizado.")
+
+with col2:
+    if not filtered_df.empty:
+        st.markdown("### Consejos para Mejorar")
+        financial_advice = generate_financial_advice(filtered_df)
+        st.markdown(financial_advice)
+    else:
+        st.info("Comienza a registrar tus gastos para recibir consejos personalizados.")
+
 
 # Transactions table
 st.header("Transacciones Recientes")
