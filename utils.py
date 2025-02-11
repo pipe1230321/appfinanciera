@@ -46,6 +46,32 @@ def add_transaction(date, type, category, amount, description):
     cur.close()
     conn.close()
 
+def update_transaction(id, date, type, category, amount, description):
+    """Update an existing transaction"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute('''
+        UPDATE transactions 
+        SET date=%s, type=%s, category=%s, amount=%s, description=%s
+        WHERE id=%s
+    ''', (date, type, category, amount, description, id))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def delete_transaction(id):
+    """Delete a transaction"""
+    conn = get_db_connection()
+    cur = conn.cursor()
+
+    cur.execute('DELETE FROM transactions WHERE id=%s', (id,))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
 def get_transactions(start_date=None, end_date=None):
     """Get transactions from database"""
     conn = get_db_connection()
@@ -76,29 +102,29 @@ def calculate_balance(df):
     """Calculate total balance from transactions"""
     if df.empty:
         return 0
-    return df[df['type'] == 'Income']['amount'].sum() - df[df['type'] == 'Expense']['amount'].sum()
+    return df[df['type'] == 'Ingreso']['amount'].sum() - df[df['type'] == 'Gasto']['amount'].sum()
 
 def create_transaction_summary(df):
     """Create summary metrics for transactions"""
     if df.empty:
         return 0, 0, 0
 
-    total_income = df[df['type'] == 'Income']['amount'].sum()
-    total_expenses = df[df['type'] == 'Expense']['amount'].sum()
+    total_income = df[df['type'] == 'Ingreso']['amount'].sum()
+    total_expenses = df[df['type'] == 'Gasto']['amount'].sum()
     balance = total_income - total_expenses
 
     return total_income, total_expenses, balance
 
 def create_spending_by_category(df):
     """Create a pie chart of spending by category"""
-    if df.empty or len(df[df['type'] == 'Expense']) == 0:
+    if df.empty or len(df[df['type'] == 'Gasto']) == 0:
         return go.Figure()
 
-    expenses_by_category = df[df['type'] == 'Expense'].groupby('category')['amount'].sum()
+    expenses_by_category = df[df['type'] == 'Gasto'].groupby('category')['amount'].sum()
     fig = px.pie(
         values=expenses_by_category.values,
         names=expenses_by_category.index,
-        title='Expenses by Category',
+        title='Gastos por Categoría',
         color_discrete_sequence=px.colors.sequential.Viridis
     )
     fig.update_layout(
@@ -119,14 +145,14 @@ def create_income_expense_trend(df):
         x='date',
         y='amount',
         color='type',
-        title='Income vs Expenses Trend',
-        color_discrete_map={'Income': '#00ff95', 'Expense': '#ff6b6b'}
+        title='Tendencia de Ingresos vs Gastos',
+        color_discrete_map={'Ingreso': '#00ff95', 'Gasto': '#ff6b6b'}
     )
     fig.update_layout(
         paper_bgcolor='rgba(0,0,0,0)',
         plot_bgcolor='rgba(0,0,0,0)',
         font_color='#fafafa',
-        xaxis_title='Date',
-        yaxis_title='Amount ($)'
+        xaxis_title='Fecha',
+        yaxis_title='Monto ($)'
     )
     return fig

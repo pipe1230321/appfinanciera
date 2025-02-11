@@ -10,7 +10,9 @@ from utils import (
     create_income_expense_trend,
     init_db,
     add_transaction,
-    get_transactions
+    get_transactions,
+    update_transaction,
+    delete_transaction
 )
 
 # Initialize database
@@ -18,47 +20,47 @@ init_db()
 
 # Page configuration
 st.set_page_config(
-    page_title="Personal Finance Tracker",
+    page_title="Control de Finanzas Personales",
     page_icon="💰",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # Title and description
-st.title("💰 Personal Finance Tracker")
-st.markdown("Track your daily income and expenses with ease!")
+st.title("💰 Control de Finanzas Personales")
+st.markdown("¡Controla tus ingresos y gastos diarios de manera fácil!")
 
 # Sidebar for adding transactions
 with st.sidebar:
-    st.header("Add New Transaction")
+    st.header("Agregar Nueva Transacción")
 
     # Transaction form
     with st.form("transaction_form"):
-        date = st.date_input("Date", datetime.now())
+        date = st.date_input("Fecha", datetime.now())
 
         transaction_type = st.selectbox(
-            "Type",
-            options=["Income", "Expense"]
+            "Tipo",
+            options=["Ingreso", "Gasto"]
         )
 
         categories = {
-            "Income": ["Salary", "Freelance", "Investments", "Other Income"],
-            "Expense": ["Food", "Transport", "Housing", "Utilities", "Entertainment", "Shopping", "Other"]
+            "Ingreso": ["Salario", "Freelance", "Inversiones", "Otros Ingresos"],
+            "Gasto": ["Alimentación", "Transporte", "Vivienda", "Servicios", "Entretenimiento", "Compras", "Otros"]
         }
 
         category = st.selectbox(
-            "Category",
+            "Categoría",
             options=categories[transaction_type]
         )
 
-        amount = st.number_input("Amount ($)", min_value=0.01, step=0.01)
-        description = st.text_input("Description")
+        amount = st.number_input("Monto ($)", min_value=0.01, step=0.01)
+        description = st.text_input("Descripción")
 
-        submit_button = st.form_submit_button("Add Transaction")
+        submit_button = st.form_submit_button("Agregar Transacción")
 
         if submit_button:
             add_transaction(date, transaction_type, category, amount, description)
-            st.success("Transaction added successfully!")
+            st.success("¡Transacción agregada exitosamente!")
             st.rerun()
 
 # Main content area
@@ -66,7 +68,7 @@ col1, col2, col3 = st.columns(3)
 
 # Date filter
 date_range = st.date_input(
-    "Select Date Range",
+    "Seleccionar Rango de Fechas",
     value=(
         datetime.now().replace(day=1),  # First day of current month
         datetime.now()
@@ -82,14 +84,14 @@ total_income, total_expenses, balance = create_transaction_summary(filtered_df)
 
 # Display metrics
 with col1:
-    st.metric("Total Income", format_amount(total_income))
+    st.metric("Ingresos Totales", format_amount(total_income))
 with col2:
-    st.metric("Total Expenses", format_amount(total_expenses))
+    st.metric("Gastos Totales", format_amount(total_expenses))
 with col3:
-    st.metric("Current Balance", format_amount(balance))
+    st.metric("Balance Actual", format_amount(balance))
 
 # Data visualization section
-st.header("Financial Overview")
+st.header("Resumen Financiero")
 
 # Display charts
 col1, col2 = st.columns(2)
@@ -109,20 +111,61 @@ with col2:
     )
 
 # Transactions table
-st.header("Recent Transactions")
+st.header("Transacciones Recientes")
 
 if not filtered_df.empty:
-    st.dataframe(
-        filtered_df.sort_values('date', ascending=False)
-        .style.format({'amount': '${:.2f}'})
-        .set_properties(**{'background-color': '#262730', 'color': '#fafafa'})
-    )
+    # Add edit and delete buttons to each row
+    for index, row in filtered_df.iterrows():
+        col1, col2, col3, col4, col5, col6 = st.columns([2, 1, 1, 1, 0.5, 0.5])
+
+        with col1:
+            st.write(f"**{row['description']}**")
+        with col2:
+            st.write(row['date'].strftime('%Y-%m-%d'))
+        with col3:
+            st.write(row['type'])
+        with col4:
+            st.write(format_amount(row['amount']))
+        with col5:
+            if st.button("✏️", key=f"edit_{row['id']}"):
+                st.session_state.editing = row['id']
+                st.session_state.edit_date = row['date']
+                st.session_state.edit_type = row['type']
+                st.session_state.edit_category = row['category']
+                st.session_state.edit_amount = row['amount']
+                st.session_state.edit_description = row['description']
+        with col6:
+            if st.button("🗑️", key=f"delete_{row['id']}"):
+                delete_transaction(row['id'])
+                st.success("Transacción eliminada exitosamente")
+                st.rerun()
+
+        # Show edit form if editing this transaction
+        if 'editing' in st.session_state and st.session_state.editing == row['id']:
+            with st.form(key=f"edit_form_{row['id']}"):
+                edit_date = st.date_input("Fecha", st.session_state.edit_date)
+                edit_type = st.selectbox("Tipo", options=["Ingreso", "Gasto"], index=0 if st.session_state.edit_type == "Ingreso" else 1)
+                edit_category = st.selectbox("Categoría", options=categories[edit_type])
+                edit_amount = st.number_input("Monto", value=float(st.session_state.edit_amount), min_value=0.01, step=0.01)
+                edit_description = st.text_input("Descripción", st.session_state.edit_description)
+
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.form_submit_button("Guardar"):
+                        update_transaction(row['id'], edit_date, edit_type, edit_category, edit_amount, edit_description)
+                        del st.session_state.editing
+                        st.success("Transacción actualizada exitosamente")
+                        st.rerun()
+                with col2:
+                    if st.form_submit_button("Cancelar"):
+                        del st.session_state.editing
+                        st.rerun()
 else:
-    st.info("No transactions found for the selected date range.")
+    st.info("No hay transacciones para el rango de fechas seleccionado.")
 
 # Footer
 st.markdown("---")
 st.markdown(
-    "Made with ❤️ using Streamlit | "
-    "Your data is securely stored in a database"
+    "Hecho con ❤️ usando Streamlit | "
+    "Tus datos están almacenados de forma segura en una base de datos"
 )
